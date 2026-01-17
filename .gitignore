@@ -1,4 +1,5 @@
 .venv/
 .python-version
 .DS_Store
-codes/.vscode/
+methode_directe/codes/__pycache__/
+methode_directe/codes/.vscode/

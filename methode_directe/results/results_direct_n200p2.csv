@@ -1,0 +1,4 @@
+data,n,p,W,omega_tag,omega,nb_points_lorenz,time_s
+data/2KP200-TA-0.dat,200,2,1080,linear,2 1,29,3.917362
+data/2KP200-TA-0.dat,200,2,1080,normalized,0.667 0.333,29,5.249041
+data/2KP200-TA-0.dat,200,2,1080,random_1,865 395,29,6.751844

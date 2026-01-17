@@ -1,6 +1,25 @@
 from gurobipy import *
 
 
+def _set_gurobi_verbosity(model: Model, verbose: bool) -> None:
+    """
+    Configure la verbosité Gurobi
+    
+    """
+    # 1 = affiche, 0 = silencieux
+    model.Params.OutputFlag = 1 if verbose else 0
+
+
+def _to_int_list(vals, ndigits: int = 6):
+    """
+    Convertit une liste de valeurs Gurobi (float) en entiers stables.
+
+    Les valuations étant entières et x binaire, y et L(y) sont entiers.
+
+    """
+    return [int(round(float(v), ndigits)) for v in vals]
+
+
 def build_P1 (w, v, W, omega, name):
     """
     Construit le programme lineaire P1 
@@ -57,18 +76,30 @@ def solve_P1 (w, v, W, omega, verbose=True):
     """
 
     m, x, r, b = build_P1(w, v, W, omega, "P1")
+    _set_gurobi_verbosity(m, verbose)
     
     # Resolution
     m.optimize()
     
     
-    # Affichage des resultats
+    # Résultats
     if m.status == GRB.OPTIMAL:
+        n = len(w)
+        p = len(omega)
+
+        # Point objectif y = (sum_j v[j][i]*x[j])
+        y = [sum(v[j][i] * x[j].x for j in range(n)) for i in range(p)]
+
+        # Vecteur de Lorenz L(y) (cumul des composantes triées)
+        y_sorted = sorted(y)
+        L = []
+        cum = 0
+        for k in range(p):
+            cum += y_sorted[k]
+            L.append(cum)
+
         if verbose:
             print("\n=== Solution optimale P1 ===\n")
-
-            n = len(w)
-            p = len(omega)
 
             # Variables x (objets choisis)
             print("Variables x (objets sélectionnés) :")
@@ -88,28 +119,18 @@ def solve_P1 (w, v, W, omega, verbose=True):
                 for i in range(p):
                     print(f"  b[{k},{i}] = {b[k,i].x:.4f}")
                 print("")
-            
-            # Point objectif y = (sum_j v[j][i]*x[j])
-            y = []
+
             print("Point objectif y :")
             for i in range(p):
-                yi = sum(v[j][i] * x[j].x for j in range(n))
-                y.append(yi)
-                print(f"  y[{i}] = {yi:.4f}")
+                print(f"  y[{i}] = {y[i]:.4f}")
             print("")
 
-            # Vecteur de Lorenz
-            y_sorted = sorted(y)
-            L = []
-            cum = 0
             print("Vecteur de Lorenz L(y) :")
             for k in range(p):
-                cum += y_sorted[k]
-                L.append(cum)
-                print(f"  L[{k}] = {cum:.4f}")
+                print(f"  L[{k}] = {L[k]:.4f}")
             print("")
 
-            # Poids utilise
+            # Poids utilisé
             total_weight = sum(w[j] * x[j].x for j in range(n))
             print(f"Poids total = {total_weight:.2f} / {W}\n")
 
@@ -117,10 +138,12 @@ def solve_P1 (w, v, W, omega, verbose=True):
             print("Valeur de la fonction objectif OWA :", m.objVal)
             print("")
 
-        return y, L
+        # Retourne des entiers stables (utile pour éviter des doublons dus au flottant)
+        return _to_int_list(y), _to_int_list(L)
 
     else:
-        print("\nPas de solution optimale trouvée.")
+        # Cas possibles : TIME_LIMIT, SUBOPTIMAL, UNBOUNDED, INF_OR_UNBD...
+        print(f"\nPas de solution optimale trouvée (statut Gurobi = {m.status}).")
         return None, None
     
 
@@ -139,21 +162,23 @@ def solve_PL (w, v, W, omega, L, verbose=True):
     """
 
     m, x, r, b = build_P1(w, v, W, omega, "PL")
+    _set_gurobi_verbosity(m, verbose)
 
     n = len(w)
     p = len(omega)
     l = len(L)
 
+    # Cas l = 0 : aucune solution précédente -> PL équivaut à P1
+    if l == 0:
+        return solve_P1(w, v, W, omega, verbose=verbose)
 
-    # Ajout des variables de decisions z 
+    # Ajout des variables de decisions z
     z = m.addVars(l, p, vtype=GRB.BINARY, name="z")
-    """
-    Traiter le cas où l = 0 ? (pas de solutions opt trouvées)
-    """
 
     # Ajout des contraintes en plus de celles de P1
     for s in range (l):
-        m.addConstr(quicksum(z[s, k] for k in range(p)) >= 1, name=f"sum_z^{s}")
+        # Au moins une composante du vecteur de Lorenz doit être strictement améliorée
+        m.addConstr(quicksum(z[s, k] for k in range(p)) >= 1, name=f"sum_z_{s}")
 
         for k in range (p):
             m.addConstr((k+1)*r[k] - quicksum(b[k, i] for i in range(p)) >= (L[s][k] + 1)*z[s, k], name=f"s={s},k={k}")
@@ -164,16 +189,31 @@ def solve_PL (w, v, W, omega, L, verbose=True):
 
     # Affichage des resultats
     if m.status == GRB.INFEASIBLE:
-        print("\n PL infaisable -> fin (tout généré).")
+        if verbose:
+            print("\nPL infaisable -> fin (tout généré).")
+        return None, None
 
+    if m.status in (GRB.INF_OR_UNBD, GRB.UNBOUNDED):
+        print(f"\nPL arrêté (statut Gurobi = {m.status}).")
         return None, None
 
     if m.status == GRB.OPTIMAL:
-        if verbose:
-            print("\n=== Solution optimale P1 ===\n")
+        n = len(w)
+        p = len(omega)
 
-            n = len(w)
-            p = len(omega)
+        # Point objectif y = (sum_j v[j][i]*x[j])
+        y = [sum(v[j][i] * x[j].x for j in range(n)) for i in range(p)]
+
+        # Vecteur de Lorenz L(y)
+        y_sorted = sorted(y)
+        L_new = []
+        cum = 0
+        for k in range(p):
+            cum += y_sorted[k]
+            L_new.append(cum)
+
+        if verbose:
+            print("\n=== Solution optimale PL ===\n")
 
             # Variables x (objets choisis)
             print("Variables x (objets sélectionnés) :")
@@ -193,28 +233,18 @@ def solve_PL (w, v, W, omega, L, verbose=True):
                 for i in range(p):
                     print(f"  b[{k},{i}] = {b[k,i].x:.4f}")
                 print("")
-            
-            # Point objectif y = (sum_j v[j][i]*x[j])
-            y = []
+
             print("Point objectif y :")
             for i in range(p):
-                yi = sum(v[j][i] * x[j].x for j in range(n))
-                y.append(yi)
-                print(f"  y[{i}] = {yi:.4f}")
+                print(f"  y[{i}] = {y[i]:.4f}")
             print("")
 
-            # Vecteur de Lorenz
-            y_sorted = sorted(y)
-            L_new = []
-            cum = 0
             print("Vecteur de Lorenz L(y) :")
             for k in range(p):
-                cum += y_sorted[k]
-                L_new.append(cum)
-                print(f"  L[{k}] = {cum:.4f}")
+                print(f"  L[{k}] = {L_new[k]:.4f}")
             print("")
 
-            # Poids utilise
+            # Poids utilisé
             total_weight = sum(w[j] * x[j].x for j in range(n))
             print(f"Poids total = {total_weight:.2f} / {W}\n")
 
@@ -222,17 +252,17 @@ def solve_PL (w, v, W, omega, L, verbose=True):
             print("Valeur de la fonction objectif OWA :", m.objVal)
             print("")
 
-        return y, L_new
+        return _to_int_list(y), _to_int_list(L_new)
     
     else:
         print(f"PL arrêté avec statut {m.status} (pas optimal).")
         return None, None
     
 
-def generate_lorenz (w, v, W, omega):
+def generate_lorenz (w, v, W, omega, verbose=True):
     Y, Ls = [], []
 
-    y0, L0 = solve_P1 (w, v, W, omega)
+    y0, L0 = solve_P1 (w, v, W, omega, verbose=verbose)
 
     if y0 is None:
         return Y, Ls
@@ -241,7 +271,7 @@ def generate_lorenz (w, v, W, omega):
     Ls.append(L0)
 
     while True:
-        y, L = solve_PL (w, v, W, omega, Ls)
+        y, L = solve_PL (w, v, W, omega, Ls, verbose=verbose)
 
         if y is None:
             break
