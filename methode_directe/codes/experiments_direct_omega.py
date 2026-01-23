@@ -15,7 +15,7 @@ from fonctions import generate_lorenz
 @dataclass
 class Instance:
     w: List[int]
-    v: List[List[int]]  # n x p
+    v: List[List[int]]  # n * p
 
 
 def load_dat(path):
@@ -148,7 +148,7 @@ def run_direct(inst, omega, verbose):
         plt.scatter(obj1, obj2)
         plt.xlabel("Objectif 1")
         plt.ylabel("Objectif 2")
-        plt.title(f"Méthode directe – ω = {omega}")
+        plt.title(f"Méthode directe avec omega = {omega}")
         plt.grid(True)
         plt.show()
     """

@@ -6,14 +6,24 @@ Ce dépôt contient l’implémentation et les expériences liées à la **méth
 
 ## Contenu du dépôt
 
-- `fonctions.py`  
+- `codes/fonctions.py`  
   Contient l’implémentation des modèles d’optimisation :
   - **P1** : problème OWA linéarisé permettant d’obtenir un vecteur de Lorenz optimal pour une pondération donnée.
   - **PL** : problème permettant d’énumérer successivement les vecteurs de Lorenz non dominés à partir des solutions déjà trouvées.
   - Fonctions utilitaires pour la génération des pondérations et l’extraction des vecteurs de Lorenz.
 
-- `experiments_direct.py`  
+- `codes/experiments_direct_time.py`  
   Script principal pour lancer les expériences numériques de la méthode directe.
+  Il permet :
+  - de fixer le nombre d’objectifs `p`,
+  - de mesurer les temps de calcul et le nombre de vecteurs de Lorenz non dominés.
+
+  Note:
+    1) Par défaut, il teste sur la liste d'objets [20, 40, 60] mais vous pouvez modifier manuellement dans le code. (ligne 40)
+    2) Il y a un timeout de 20 minutes. Vous pouvez aussi le modifier manuellement dans le code. (ligne 14)
+
+- `codes/experiments_direct_omega.py`  
+  Script pour lancer les expériences numériques sur omega avec la méthode directe.
   Il permet :
   - de fixer le nombre d’objets `n` et le nombre d’objectifs `p`,
   - de tester différentes familles de pondérations OWA (`linéaire`, `normalisée`, `géométrique`, `aléatoire`),
@@ -39,12 +49,26 @@ Le projet est écrit en **Python 3** et nécessite les bibliothèques suivantes 
 
 ## Arguments
 
-Le script `experiments_direct.py` accepte les arguments suivants :
+Le script `experiments_direct_omega.py` accepte les arguments suivants :
 
 - `--data DATA`  
   Chemin vers le fichier d’instance au format `.dat`.
 - `--n N`
   Nombre d’objets considérés. Le script utilise uniquement les n premiers objets du fichier d’instance.
+- `--p P`
+  Nombre d’objectifs considérés. Le script utilise uniquement les p premiers objectifs du fichier d’instance.
+- `--seed SEED`
+  Graine du générateur aléatoire, utilisée pour assurer la reproductibilité des pondérations OWA aléatoires.
+- `--random-omega RANDOM_OMEGA`
+  Nombre de pondérations OWA aléatoires supplémentaires à générer, en plus des familles de pondérations de base (linéaire, normalisée, géométrique).
+- `--verbose`
+  Affiche le détail des solutions trouvées pendant l’exécution.
+
+
+Le script `experiments_direct_time.py` accepte les arguments suivants :
+
+- `--data DATA`  
+  Chemin vers le fichier d’instance au format `.dat`.
 - `--p P`
   Nombre d’objectifs considérés. Le script utilise uniquement les p premiers objectifs du fichier d’instance.
 - `--seed SEED`
@@ -65,5 +89,9 @@ Mettez-vous d'abord dans le dossier `methode_directe/` :
 
 Exemple de commande pour lancer la méthode directe sur une instance donnée :
 ```bash
-python codes/experiments_direct.py --data ../data/2KP200-TA-0.dat --n 20 --p 3 --random-omega 1
+python codes/experiments_direct_omega.py --data ../data/2KP200-TA-0.dat --n 20 --p 3 --random-omega 1
+```
+
+```bash
+python codes/experiments_direct_time.py --data ../data/2KP200-TA-0.dat --p 3
 ```
