@@ -1,4 +1,4 @@
-# Projet MADMC – Méthodes de résolution pour le sac à dos multiobjectif
+# Génération de l’ensemble des points non dominés au sens de Lorenz pour le problème de sac à dos multi-objectifs
 
 Ce dépôt contient le code et les résultats associés au projet de MADMC portant sur la résolution d’un problème de sac à dos multiobjectif.
 
@@ -26,6 +26,7 @@ projet_madmc/
 ├── methode_indirecte/
 ├── bibliographie/
 ├── Rapport.pdf
+├── projetMADMC.pdf
 └── README.md
 ```
 
@@ -33,4 +34,6 @@ projet_madmc/
 
 ## Remarques
 
-Pour exécuter une des deux méthodes, allez directement dans le dossier (`methode_indirecte`/`methode_directe`) et lisez le README pour plus d'informations.
+- Pour exécuter une des deux méthodes, allez directement dans le dossier (`methode_indirecte`/`methode_directe`) et lisez le README pour plus d'informations (scripts à lancer). 
+- L'énoncé du projet se trouve dans le fichier `projetMADMC.pdf`
+- Le rapport est dans `Rapport.pdf`
